@@ -1,5 +1,6 @@
 #include "generic.h"
 
+#define THE_SPEED  921600
 #ifdef WIN32
     char DevName[100] = "COM2";
 #else
@@ -8,13 +9,13 @@
 
 int main(){
     SERIAL_HANDLE_ID id ;
-    id = API_Serial_Open(DevName,19200,
+    id = API_Serial_Open(DevName,THE_SPEED,
             8,1);
     if (id == SERIAL_HANDLE_ID_ERROR){
         printf("Serial Handle open error\n");
         exit(0);
     }
-    char buffer[200] = "Hello Serial\n";
+    char buffer[200] = "Hello from linux\n";
     char recvbuf[1024] ;
     int nrecv,nwrite;
     while ((nrecv = API_Serial_recv(id,recvbuf,

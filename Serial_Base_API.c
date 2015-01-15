@@ -17,17 +17,17 @@ HANDLE win32_OpenComm(char *Dev,int speed,
         printf("Error :  COM Create !\n");
         return (HANDLE)(-1);
     }
-    SetupComm(hCom,102400,102400); 
+    SetupComm(hCom,1024,1024); 
          
+     
     COMMTIMEOUTS TimeOuts;  
           
     TimeOuts.ReadIntervalTimeout=1000;  
     TimeOuts.ReadTotalTimeoutMultiplier=500;  
     TimeOuts.ReadTotalTimeoutConstant=5000;  
-    /* 
         TimeOuts.WriteTotalTimeoutMultiplier=500;  
         TimeOuts.WriteTotalTimeoutConstant=2000;  
- */    SetCommTimeouts(hCom,&TimeOuts);  
+     SetCommTimeouts(hCom,&TimeOuts);  
         
         DCB dcb;  
         GetCommState(hCom,&dcb);  
@@ -43,45 +43,47 @@ HANDLE win32_OpenComm(char *Dev,int speed,
 
 
 #else
-int speed_arr[] = { B38400, B19200, B9600, B4800, B2400, B1200, B300,
-        B38400, B19200, B9600, B4800, B2400, B1200, B300, };
-int name_arr[] = {38400,  19200,  9600,  4800,  2400,  1200,  300,
-        38400,  19200,  9600, 4800, 2400, 1200,  300, };
-void set_speed(int fd, int speed)
-{
-  int   i;
-  int   status;
-  struct termios   Opt;
-  tcgetattr(fd, &Opt);
-  for ( i= 0;  i < sizeof(speed_arr) / sizeof(int);  i++)
-   {
-    if  (speed == name_arr[i])
-    {
-        tcflush(fd, TCIOFLUSH);
-        cfsetispeed(&Opt, speed_arr[i]);
-        cfsetospeed(&Opt, speed_arr[i]);
-        status = tcsetattr(fd, TCSANOW, &Opt);
-        if  (status != 0)
-            perror("tcsetattr fd1");
-        return;
+int speed_arr[] = { B921600, B460800, B230400, B115200, B57600, B38400, B19200,
+       B9600, B4800, B2400, B1200, B300, B38400, B19200, B9600,
+       B4800, B2400, B1200, B300, };
+int name_arr[] = {  921600, 460800, 230400, 115200, 57600, 38400,  19200,  
+       9600,  4800,  2400,  1200,  300, 38400,  19200,  9600,
+       4800, 2400, 1200,  300, };
+void set_speed(int fd, int speed) {
+    int   i;
+    int   status;
+    struct termios   Opt;
+    tcgetattr(fd, &Opt);
+    for ( i= 0;  i < sizeof(speed_arr) / sizeof(int);  i++) {
+        if  (speed == name_arr[i]) {
+            tcflush(fd, TCIOFLUSH);
+            cfsetispeed(&Opt, speed_arr[i]);
+            cfsetospeed(&Opt, speed_arr[i]);
+            status = tcsetattr(fd, TCSANOW, &Opt);
+            if  (status != 0)
+                perror("tcsetattr fd1");
+            return;
         }
-   tcflush(fd,TCIOFLUSH);
-   }
+        tcflush(fd,TCIOFLUSH);
+    }
 }
 
 /**
 */
-int set_Parity(int fd,int databits,int stopbits,int parity)
-{
+int set_Parity(int fd,int databits,int stopbits,int parity) {
     struct termios options;
- if  ( tcgetattr( fd,&options)  !=  0)
-  {
-    perror("SetupSerial 1");
-    return(FALSE);
-  }
-  options.c_cflag &= ~CSIZE;
-  switch (databits) /*ÉèÖÃÊýŸÝÎ»Êý*/
-  {
+    if  ( tcgetattr( fd,&options)  !=  0) {
+        perror("SetupSerial 1");
+        return(FALSE);
+    }
+
+    options.c_cflag &= ~CSIZE;
+    //options.c_iflag |= ECHO;             
+    options.c_lflag  &= ~(ICANON | ECHO | ECHOE | ISIG);  /*Input*/
+    options.c_oflag  &= ~OPOST;   /*Output*/ 
+
+    switch (databits) /*ÉèÖÃÊýŸÝÎ»Êý*/
+    {
     case 7:
         options.c_cflag |= CS7;
         break;
@@ -92,7 +94,7 @@ int set_Parity(int fd,int databits,int stopbits,int parity)
         fprintf(stderr,"Unsupported data size\n");
         return (FALSE);
     }
-  switch (parity)
+    switch (parity)
     {
     case 'n':
     case 'N':
@@ -117,10 +119,10 @@ int set_Parity(int fd,int databits,int stopbits,int parity)
         break;
     default:
         fprintf(stderr,"Unsupported parity\n");
-        return (FALSE);
-        }
+    return (FALSE);
+    }
 
-  switch (stopbits)
+    switch (stopbits)
     {
     case 1:
         options.c_cflag &= ~CSTOPB;
@@ -132,34 +134,31 @@ int set_Parity(int fd,int databits,int stopbits,int parity)
         fprintf(stderr,"Unsupported stop bits\n");
         return (FALSE);
     }
-  /* Set input parity option */
-  if (parity != 'n')
-    options.c_iflag |= INPCK;
+    /* Set input parity option */
+    if (parity != 'n')
+        options.c_iflag |= INPCK;
     options.c_cc[VTIME] = 150; // 15 seconds
     options.c_cc[VMIN] = 0;
 
-  tcflush(fd,TCIFLUSH); /* Update the options and do it NOW */
-  if (tcsetattr(fd,TCSANOW,&options) != 0)
+    tcflush(fd,TCIFLUSH); /* Update the options and do it NOW */
+    if (tcsetattr(fd,TCSANOW,&options) != 0)
     {
         perror("SetupSerial 3");
         return (FALSE);
     }
-  return (TRUE);
- }
+    return (TRUE);
+}
 
 /**
 */
 int OpenDev(char *Dev)
 {
-int fd = open( Dev, O_RDWR );         //| O_NOCTTY | O_NDELAY
-    if (-1 == fd)
-        { /*ÉèÖÃÊýŸÝÎ»Êý*/
-            perror("Can't Open Serial Port");
-            return -1;
-        }
-    else
-    return fd;
+    int fd = open( Dev, O_RDWR );         //| O_NOCTTY | O_NDELAY
+    if (-1 != fd)
+        return fd;
 
+    perror("Can't Open Serial Port");
+    return -1;
 }
 #endif
 
@@ -192,7 +191,8 @@ SERIAL_HANDLE_ID API_Serial_Open(char *Dev,int speed,
     return id;
 }
 
-DWORD API_Serial_Send(SERIAL_HANDLE_ID id, char *buffer,DWORD buflen){
+
+DWORD Serial_Send_Bytes(SERIAL_HANDLE_ID id, char *buffer,DWORD buflen){
     DWORD nwrite = buflen;
 #ifdef WIN32
     BOOL bWriteStat;
@@ -210,7 +210,7 @@ DWORD API_Serial_Send(SERIAL_HANDLE_ID id, char *buffer,DWORD buflen){
     return nwrite;
 }
 
-DWORD API_Serial_recv(SERIAL_HANDLE_ID id, char *buffer,DWORD buflen){
+DWORD Serial_Recv_Bytes(SERIAL_HANDLE_ID id, char *buffer,DWORD buflen){
     DWORD nrecv = buflen; 
 #ifdef WIN32
     BOOL bReadStat;
@@ -226,6 +226,59 @@ DWORD API_Serial_recv(SERIAL_HANDLE_ID id, char *buffer,DWORD buflen){
         return SERIAL_RECV_ERROR;
     }
 #endif
+    return nrecv;
+}
+
+DWORD API_Serial_Send(SERIAL_HANDLE_ID id, char *buffer,DWORD buflen){
+    DWORD bytes_left = buflen;
+    int i = 0;
+    DWORD bytes_send = 0;
+    while(bytes_left>0){
+        if(bytes_left > SERIAL_MAX_PACKAGE) {
+            Serial_Send_Bytes(id,"\xFF",1);
+            bytes_send += 
+             Serial_Send_Bytes(id,buffer[i*SERIAL_MAX_PACKAGE],256);
+            bytes_left -= SERIAL_MAX_PACKAGE;
+        }
+        else{
+            unsigned char c = bytes_left;
+            Serial_Send_Bytes(id,&c,1);
+            bytes_send += 
+             Serial_Send_Bytes(id,buffer[(i)*SERIAL_MAX_PACKAGE],bytes_left);
+        }
+        i++;
+    }
+    if(bytes_send != buflen){
+        return SERIAL_SEND_ERROR   
+    }
+    return nwrite;
+}
+
+DWORD API_Serial_recv(SERIAL_HANDLE_ID id, char *buffer,DWORD maxlen){
+    DWORD nrecv  = 0,recvlen; 
+    int i = 0,flag = 1;
+    unsigned char c ;
+    recvlen = Serial_Recv_Bytes( id , &c ,1 );
+    if(SERIAL_RECV_ERROR != recvlen && recvlen == 1 ){
+        while(flag){
+            if (c < 0 || nrecv + c >= maxlen){
+                flag = 0;
+                return SERIAL_RECV_ERROR; // overflow
+            }
+            else if( c== 0 ){
+                break;
+            }
+            recvlen = Serial_Recv_Bytes(id,&(buffer[nrecv]),c);
+            if(SERIAL_RECV_ERROR != recvlen && recvlen == c) {
+                nrecv += recvlen;
+            }
+            else if (recvlen == 0 || 
+              recvlen != (SERIAL_MAX_PACKAGE-1)){
+                flag = 0;
+                break;
+            }
+        }
+    }
     return nrecv;
 }
 

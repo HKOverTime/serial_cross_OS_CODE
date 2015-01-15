@@ -13,6 +13,7 @@
     #define TRUE                 0
     typedef unsigned long DWORD;
 #endif // 
+#define SERIAL_MAX_PACKAGE   256 // 65535
 #define SERIAL_INIT_ENV_OK   1
 #define SERIAL_SEND_ERROR   -1
 #define SERIAL_RECV_ERROR   -1
