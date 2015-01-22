@@ -19,7 +19,7 @@ int main(){
     int nrecv = 0,nwrite;
 
 
-//Printf("Hello Debug env\n");
+Printf("Hello Debug env\n");
 //Printf("Hello nrecv = %d\n", nrecv);
 
 
