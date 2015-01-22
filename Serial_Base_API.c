@@ -202,7 +202,7 @@ DWORD Serial_Send_Bytes(SERIAL_HANDLE_ID id, char *buffer,DWORD buflen){
         return SERIAL_SEND_ERROR;
     }
 #else
-    nwrite = write(id,buffer,strlen(buffer));
+    nwrite = write(id,buffer,buflen);
     if(nwrite != buflen){
         return SERIAL_SEND_ERROR;
     }
@@ -212,73 +212,108 @@ DWORD Serial_Send_Bytes(SERIAL_HANDLE_ID id, char *buffer,DWORD buflen){
 
 DWORD Serial_Recv_Bytes(SERIAL_HANDLE_ID id, char *buffer,DWORD buflen){
     DWORD nrecv = buflen; 
+    DWORD bufnum = 0;
+    int i =0 ;
+    while(i < MAX_WHILE_TIMES){
+                                                      
 #ifdef WIN32
-    BOOL bReadStat;
-    bReadStat = ReadFile(id,buffer,buflen,&nrecv,NULL);  
-    if(!bReadStat)  
-    {  
-        printf("Error : read file !\n");  
-        return SERIAL_RECV_ERROR;
-    }  
+        BOOL bReadStat;
+        bReadStat = ReadFile(id,&(buffer[bufnum]),buflen-bufnum,&nrecv,NULL);  
+        if(!bReadStat)  
+        {  
+            printf("Error : read file !\n");  
+            return SERIAL_RECV_ERROR;
+        }  
 #else
-    nrecv = read(id,buffer,buflen);
-    if (nrecv <0){
+        nrecv = read(id,&(buffer[bufnum]),buflen-bufnum);
+        if (nrecv <0){
+            return SERIAL_RECV_ERROR;
+        }
+#endif
+        i++ ;   
+        bufnum += nrecv;
+Printf(" Serial_Recv_Bytes ==> bufnum = %d , nrecv = %d , buflen = %d.\n",bufnum,nrecv,buflen);
+        if ( bufnum == buflen ){
+            break;
+        }
+        if (nrecv > 0 ){ 
+            i = 0;
+        }
+        nrecv = 0;
+        MIC_USLEEP(1);
+    }
+    if(i == MAX_WHILE_TIMES){
         return SERIAL_RECV_ERROR;
     }
-#endif
-    return nrecv;
+    return bufnum;
 }
 
 DWORD API_Serial_Send(SERIAL_HANDLE_ID id, char *buffer,DWORD buflen){
     DWORD bytes_left = buflen;
     int i = 0;
     DWORD bytes_send = 0;
+    if (buflen > SERIAL_MAX_PACKAGE * SERIAL_MAX_PACKAGE ){
+        return SERIAL_SEND_ERROR;
+    }
+    unsigned char c =(unsigned char) (buflen / SERIAL_MAX_PACKAGE + 1);
+                                     
+    Serial_Send_Bytes( id , &c , 1 );
     while(bytes_left>0){
         if(bytes_left > SERIAL_MAX_PACKAGE) {
             Serial_Send_Bytes(id,"\xFF",1);
             bytes_send += 
-             Serial_Send_Bytes(id,buffer[i*SERIAL_MAX_PACKAGE],256);
+             Serial_Send_Bytes(id,&(buffer[i*SERIAL_MAX_PACKAGE]),256);
             bytes_left -= SERIAL_MAX_PACKAGE;
         }
-        else{
-            unsigned char c = bytes_left;
+        else {
+            c = bytes_left;
+                                          
             Serial_Send_Bytes(id,&c,1);
             bytes_send += 
-             Serial_Send_Bytes(id,buffer[(i)*SERIAL_MAX_PACKAGE],bytes_left);
+             Serial_Send_Bytes(id,&(buffer[(i)*SERIAL_MAX_PACKAGE]),bytes_left);
+                                 
+            bytes_left -= bytes_left;
         }
         i++;
     }
-    if(bytes_send != buflen){
-        return SERIAL_SEND_ERROR   
+    if(bytes_send != buflen) {
+        return SERIAL_SEND_ERROR   ;
     }
-    return nwrite;
+
+    return bytes_send;
 }
 
-DWORD API_Serial_recv(SERIAL_HANDLE_ID id, char *buffer,DWORD maxlen){
+DWORD API_Serial_recv(SERIAL_HANDLE_ID id, char *buffer,
+        DWORD maxlen){
     DWORD nrecv  = 0,recvlen; 
     int i = 0,flag = 1;
-    unsigned char c ;
-    recvlen = Serial_Recv_Bytes( id , &c ,1 );
-    if(SERIAL_RECV_ERROR != recvlen && recvlen == 1 ){
-        while(flag){
-            if (c < 0 || nrecv + c >= maxlen){
-                flag = 0;
-                return SERIAL_RECV_ERROR; // overflow
-            }
-            else if( c== 0 ){
-                break;
-            }
-            recvlen = Serial_Recv_Bytes(id,&(buffer[nrecv]),c);
-            if(SERIAL_RECV_ERROR != recvlen && recvlen == c) {
-                nrecv += recvlen;
-            }
-            else if (recvlen == 0 || 
-              recvlen != (SERIAL_MAX_PACKAGE-1)){
-                flag = 0;
-                break;
-            }
-        }
+    unsigned char c ,pack_num;
+
+    recvlen = Serial_Recv_Bytes( id , &pack_num ,1 );
+                                                   
+    if (recvlen != 1){
+        return SERIAL_RECV_ERROR;
     }
+    
+    while( i < pack_num ){
+        recvlen = Serial_Recv_Bytes( id , &c ,1 );
+                                     
+        if (c < 0 ||  //将要收取小于0字节的数据包
+              nrecv + c >= maxlen || // 所收取的数据将引起缓冲区溢出 
+              SERIAL_RECV_ERROR == recvlen || // 接收错误
+              recvlen != 1 ){ // 无数据包头的值或包头值接收错误
+            flag = 0;
+            return SERIAL_RECV_ERROR; // overflow
+        }
+                                      
+        recvlen = Serial_Recv_Bytes(id,&(buffer[nrecv]),c);
+                               
+        if(SERIAL_RECV_ERROR != recvlen && recvlen == c) {
+            nrecv += recvlen;
+        }
+        i ++;
+    }
+
     return nrecv;
 }
 

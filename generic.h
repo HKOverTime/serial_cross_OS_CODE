@@ -33,5 +33,12 @@
 // end my headers
 
 
+//#define _DEBUG_PRINT_
+#ifndef _DEBUG_PRINT_
+    #define _DEBUG_PRINT_
+    #define Printf(fmt, args...) printf( fmt,##args )
+#else 
+    #define Printf(fmt, args...) ;
+#endif
 
 #endif // _GENERIC_H_

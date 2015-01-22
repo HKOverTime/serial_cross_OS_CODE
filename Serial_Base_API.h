@@ -6,17 +6,20 @@
 #ifdef WIN32
     #define SERIAL_HANDLE_ID HANDLE
     #define SERIAL_HANDLE_ID_ERROR (HANDLE)(-1)
+    #define MIC_USLEEP(x)  usleep(x)
 #else 
     #define SERIAL_HANDLE_ID int
     #define SERIAL_HANDLE_ID_ERROR (-1)
     #define FALSE               -1
     #define TRUE                 0
+    #define MIC_USLEEP(x)  sleep(x)
     typedef unsigned long DWORD;
 #endif // 
-#define SERIAL_MAX_PACKAGE   256 // 65535
-#define SERIAL_INIT_ENV_OK   1
-#define SERIAL_SEND_ERROR   -1
-#define SERIAL_RECV_ERROR   -1
+#define SERIAL_MAX_PACKAGE     255 // 255*255 65025
+#define MAX_WHILE_TIMES         20 // 连续20次收不到数据就返回 
+#define SERIAL_INIT_ENV_OK       1
+#define SERIAL_SEND_ERROR       -1
+#define SERIAL_RECV_ERROR       -1
 
 
 int API_init_serial_env();
